@@ -29,7 +29,7 @@
 #' \dontrun{
 #' SampleCrossV <- estCrossVal(numDays,DecLow,DecHigh,Sample)
 #' }
-estCrossVal<-function(numDays,DecLow,DecHigh, Sample, windowY = 7, windowQ = 2, 
+estCrossVal<-function(numDays,DecLow,DecHigh, Sample, GetWeights, windowY = 7, windowQ = 2, 
                       windowS = 0.5, minNumObs = 100, minNumUncen = 50,
                       edgeAdjust=TRUE){
   #  this function fits the WRTDS model making an estimate of concentration for every day
@@ -63,7 +63,7 @@ estCrossVal<-function(numDays,DecLow,DecHigh, Sample, windowY = 7, windowQ = 2,
 
     SampleMinusOne<-SampleCV[SampleCV$iCounter!=i,]
   
-    result<-runSurvReg(SampleCrossV$DecYear[i],SampleCrossV$LogQ[i],numDays,DecLow,DecHigh,SampleMinusOne,
+    result<-runSurvReg(SampleCrossV$DecYear[i],SampleCrossV$LogQ[i],numDays,DecLow,DecHigh,SampleMinusOne, GetWeights, 
                        windowY,windowQ,windowS,minNumObs,minNumUncen,interactive=FALSE,
                        edgeAdjust=edgeAdjust)
     

@@ -32,7 +32,7 @@
 #' DecLow <- Sample$DecYear[1]
 #' DecHigh <- Sample$DecYear[nrow(Sample)]
 #' resultSurvReg <- runSurvReg(estPtYear,estPtLQ,numDays,DecLow,DecHigh,Sample)
-runSurvReg<-function(estPtYear,estPtLQ,numDays,DecLow,DecHigh,Sample, 
+runSurvReg<-function(estPtYear,estPtLQ,numDays,DecLow,DecHigh,Sample, GetWeights, 
                      windowY=7, windowQ=2, windowS=0.5,
                      minNumObs=100, minNumUncen=50, interactive=TRUE,
                      edgeAdjust=TRUE) {
@@ -54,49 +54,37 @@ runSurvReg<-function(estPtYear,estPtLQ,numDays,DecLow,DecHigh,Sample,
 #   options(warn=1) #warn=0 is default
   warningFlag <- 0
   
-  for (i in 1:numEstPt) {
+#  for (i in 1:numEstPt) {
     
     # This loop takes us through all the estimation points
     # We always reset the window widths to their starting values, because they may
     #   have been widened in the process
-    tempWindowY<-windowY
-    tempWindowQ<-windowQ
-    tempWindowS<-windowS
+#    tempWindowY<-windowY
+#    tempWindowQ<-windowQ
+#    tempWindowS<-windowS
+#    estY<-estPtYear[i]
+#    distLow <- estY-DecLow
+#    distHigh <- DecHigh-estY
+#    distTime <- min(distLow,distHigh)
+    
+#    if (edgeAdjust)  tempWindowY <- if(distTime>tempWindowY) tempWindowY else ((2 * tempWindowY) - distTime)
+    
+#    estLQ<-estPtLQ[i]
+
+    weights <- GetWeights(estPtYear, estPtLQ, DecLow, DecHigh, localSample, windowY, windowQ, windowS, minNumObs, minNumUncen, edgeAdjust)
+ # }
+    
+  for (i in 1:numEstPt) {
     estY<-estPtYear[i]
-    distLow <- estY-DecLow
-    distHigh <- DecHigh-estY
-    distTime <- min(distLow,distHigh)
-    
-    if (edgeAdjust)  tempWindowY <- if(distTime>tempWindowY) tempWindowY else ((2 * tempWindowY) - distTime)
-    
     estLQ<-estPtLQ[i]
 
-    repeat{
-      #  We subset the sample frame by time, to narrow the set of data to run through in the following steps
+    Sam <- localSample
+    Sam$weight <- weights[[i]]
+    Sam <- Sam[Sam$weight > 0, ]
 
-      Sam <- localSample[abs(localSample$DecYear-estY) <= tempWindowY,]
-      diffY<-abs(Sam$DecYear-estY)
-      weightY<-triCube(diffY,tempWindowY)
-      weightQ<-triCube(Sam$LogQ-estLQ,tempWindowQ)
-      diffUpper<-ceiling(diffY)
-      diffLower<-floor(diffY)
-      diffSeason<-pmin(abs(diffUpper-diffY),abs(diffY-diffLower))
-      weightS<-triCube(diffSeason,tempWindowS)
-      Sam$weight<-weightY*weightQ*weightS
-      Sam<-subset(Sam,weight>0)
-      numPosWt<-length(Sam$weight)
-      numUncen<-sum(Sam$Uncen)
-      tempWindowY<-tempWindowY*1.1
-      tempWindowQ<-tempWindowQ*1.1
-      # the next line is designed so that if the user sets windowS so it includes
-      # data from all seasons, the widening process leaves it alone    	
-      tempWindowS<-if(windowS<=0.5) min(tempWindowS*1.1,0.5) else windowS
-      if(numPosWt>=minNumObs&numUncen>=minNumUncen) break
-    }
-
-    
     # now we are ready to run Survival Regression
     weight<-Sam$weight
+    numPosWt<-length(Sam$weight)
     aveWeight<-sum(weight)/numPosWt
     weight<-weight/aveWeight
     Sam <- data.frame(Sam)
@@ -150,5 +138,6 @@ runSurvReg<-function(estPtYear,estPtLQ,numDays,DecLow,DecHigh,Sample,
 #   options(warn=0) 
   if (interactive) cat("\nSurvival regression: Done")
 
+#  save(resultSurvReg, file = "D:\\EGRET\\resultSurvReg_Test.txt", ascii = TRUE)
   return(resultSurvReg)
 }

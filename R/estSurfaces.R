@@ -25,7 +25,7 @@
 #' @examples
 #' eList <- Choptank_eList
 #' \dontrun{surfaces <- estSurfaces(eList)}
-estSurfaces<-function(eList, windowY=7,windowQ=2,windowS=0.5,
+estSurfaces<-function(eList, GetWeights, windowY=7,windowQ=2,windowS=0.5,
                       minNumObs=100,minNumUncen=50,edgeAdjust=TRUE){
   # this function estimates the 3 surfaces based on the Sample data
   # one is the estimated log concentration (yHat)
@@ -63,7 +63,7 @@ estSurfaces<-function(eList, windowY=7,windowQ=2,windowS=0.5,
   
   localSampleMin <- localSample[,which(originalColumns %in% colToKeep)]
   
-  resultSurvReg<-runSurvReg(estPtYear,estPtLogQ,numDays,DecLow,DecHigh,localSampleMin,
+  resultSurvReg<-runSurvReg(estPtYear,estPtLogQ,numDays,DecLow,DecHigh,localSampleMin, GetWeights, 
                             windowY,windowQ,windowS,minNumObs,minNumUncen,edgeAdjust=edgeAdjust)
   
   surfaces<-array(0,dim=c(14,nVectorYear,3))
