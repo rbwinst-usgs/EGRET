@@ -74,6 +74,7 @@ runSurvReg<-function(estPtYear,estPtLQ,numDays,DecLow,DecHigh,Sample, GetWeights
     weights <- GetWeights(estPtYear, estPtLQ, DecLow, DecHigh, localSample, windowY, windowQ, windowS, minNumObs, minNumUncen, edgeAdjust)
  # }
     
+#  for (i in 1:numEstPt) {
   for (i in 1:numEstPt) {
     estY<-estPtYear[i]
     estLQ<-estPtLQ[i]
