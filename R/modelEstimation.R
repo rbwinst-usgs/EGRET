@@ -162,6 +162,111 @@ GetWeights <- cxxfunction(signature(estPtYear="numeric", estPtLQ="numeric",
   edgeAdjust="logical"), 
   GetWeightsSource, include = srcTriCube, plugin="Rcpp")
 
+ApplyWeightsSource <- '
+  double pi = 3.141592653589793238462643383279502884;
+  int NumEstPt = Rcpp::as<int>(numEstPt);
+  Rcpp::NumericVector l_estPtYear = Rcpp::as<Rcpp::NumericVector>(estPtYear);
+  Rcpp::NumericVector l_estPtLQ = Rcpp::as<Rcpp::NumericVector>(estPtLQ);
+
+  Rcpp::DataFrame LocalSample = Rcpp::as<Rcpp::DataFrame>(localSample);
+  Rcpp::List Weights(weights);
+  Rcpp::Function subset("subset");
+  Rcpp::Function Predict("predict");
+  Function GetSurvModel(GetX_and_survModel);
+
+  NumericMatrix resultSurvReg(NumEstPt, 3);
+  double estY = 0;
+  double estLQ = 0;
+  Rcpp::DataFrame newdf = Rcpp::DataFrame::create(Rcpp::Named("DecYear") = estY,
+    Rcpp::Named("LogQ") = estLQ,
+    Rcpp::Named("SinDY") = sin(2*pi*estY),
+    Rcpp::Named("CosDY") = cos(2*pi*estY));
+
+  bool error = FALSE;
+  for(int i = 0; i < NumEstPt; i++) {
+    Rcpp::DataFrame Sam = Rcpp::as<Rcpp::DataFrame>(Rcpp::clone(LocalSample));
+    Rcpp::NumericVector weight = Rcpp::as<Rcpp::NumericVector>(Weights[i]);
+    Sam["weight"] = weight;
+    Sam = Rcpp::as<Rcpp::DataFrame>(Sam);
+    Sam = subset(Sam, weight > 0);
+    weight = Sam["weight"];
+    int numPosWt = weight.size();
+
+    double aveWeight = 0;
+    for (int Weight_i = 0; Weight_i < numPosWt; Weight_i++){
+      aveWeight = aveWeight + weight[Weight_i];
+    }
+    aveWeight = aveWeight/numPosWt;
+    for (int Weight_i = 0; Weight_i < numPosWt; Weight_i++){
+      weight[Weight_i] = weight[Weight_i]/aveWeight;
+    }
+    
+    Rcpp::List X_and_survModel = GetSurvModel(Sam, weight);
+
+
+//    bool missing = FALSE;
+    if (Rf_isNull(X_and_survModel)) {
+      error = TRUE;
+      break;
+    } 
+    else if (any(is_na(X_and_survModel))) {
+//      missing = TRUE;
+      resultSurvReg(i,0) = NA_REAL;
+      resultSurvReg(i,1) = NA_REAL;
+      resultSurvReg(i,2) = NA_REAL;
+    }
+    else {
+      Rcpp::List survModel = Rcpp::as<Rcpp::List>(X_and_survModel["survModel"]);
+
+      double estY = l_estPtYear[i];
+      double estLQ = l_estPtLQ[i];
+  
+      newdf["DecYear"] = estY;
+      newdf["LogQ"] = estLQ;
+      newdf["SinDY"] = sin(2*pi*estY);
+      newdf["CosDY"] = cos(2*pi*estY);
+
+      double yHat = Rcpp::as<double>(Predict(survModel,newdf));
+
+      double SE = Rcpp::as<double>(survModel["scale"]);
+      double bias = exp((SE*SE)/2);
+      resultSurvReg(i,0) = yHat;
+      resultSurvReg(i,1) = SE;
+      resultSurvReg(i,2) = bias*exp(yHat);
+
+
+    }
+
+
+//    handle warning here
+
+  }
+
+//  handle message here
+
+
+
+  if (error) {
+    // Still need to do the following.
+    // message(e, "Error")
+    return (wrap(NA_REAL));
+  }
+  else {
+    return (resultSurvReg);
+  }
+'
+
+ApplyWeights <- cxxfunction(signature(numEstPt="numeric", 
+    localSample="data.frame",
+    weights="list",
+    GetX_and_survModel = "function",
+    predict = "function",
+    estPtYear="numeric",
+    estPtLQ="numeric"
+   ), 
+  ApplyWeightsSource, plugin="Rcpp")
+
+
   # this code is a wrapper for several different functions that test the model, fit a surface,
   #  estimate daily values and flow normalized daily values
   #  and organize these into monthly results
@@ -177,7 +282,7 @@ GetWeights <- cxxfunction(signature(estPtYear="numeric", estPtLQ="numeric",
   DecHigh <- localDaily$DecYear[numDays]
   
   cat("\n first step running estCrossVal may take about 1 minute")
-  Sample1<-estCrossVal(numDays,DecLow,DecHigh, localSample, GetWeights, 
+  Sample1<-estCrossVal(numDays,DecLow,DecHigh, localSample, GetWeights, ApplyWeights,
                        windowY, windowQ, windowS, minNumObs, minNumUncen,
                        edgeAdjust)
 
@@ -199,7 +304,7 @@ GetWeights <- cxxfunction(signature(estPtYear="numeric", estPtLQ="numeric",
   localINFO$edgeAdjust <- edgeAdjust
   
   cat("\nNext step running  estSurfaces with survival regression:\n")
-  surfaces1<-estSurfaces(eList, GetWeights, 
+  surfaces1<-estSurfaces(eList, GetWeights, ApplyWeights,
                          windowY, windowQ, windowS, minNumObs, minNumUncen, edgeAdjust)
 
   eList <- as.egret(Daily=localDaily, 

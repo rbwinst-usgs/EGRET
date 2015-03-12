@@ -12,7 +12,8 @@
 #''
 #' @examples
 #''
-GetX_and_survModel<-function(ConcLow, ConcHigh, DecYear, LogQ, SinDY, CosDY, Sam,weight){
+#GetX_and_survModel<-function(ConcLow, ConcHigh, DecYear, LogQ, SinDY, CosDY, Sam,weight){
+GetX_and_survModel<-function(Sam, weight){
 
     x <- tryCatch({
       survModel<-survreg(Surv(log(ConcLow),log(ConcHigh),type="interval2") ~ 

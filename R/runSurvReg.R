@@ -32,7 +32,7 @@
 #' DecLow <- Sample$DecYear[1]
 #' DecHigh <- Sample$DecYear[nrow(Sample)]
 #' resultSurvReg <- runSurvReg(estPtYear,estPtLQ,numDays,DecLow,DecHigh,Sample)
-runSurvReg<-function(estPtYear,estPtLQ,numDays,DecLow,DecHigh,Sample, GetWeights, 
+runSurvReg<-function(estPtYear,estPtLQ,numDays,DecLow,DecHigh,Sample, GetWeights, ApplyWeights,
                      windowY=7, windowQ=2, windowS=0.5,
                      minNumObs=100, minNumUncen=50, interactive=TRUE,
                      edgeAdjust=TRUE) {
@@ -74,91 +74,95 @@ runSurvReg<-function(estPtYear,estPtLQ,numDays,DecLow,DecHigh,Sample, GetWeights
     weights <- GetWeights(estPtYear, estPtLQ, DecLow, DecHigh, localSample, windowY, windowQ, windowS, minNumObs, minNumUncen, edgeAdjust)
  # }
     
-  for (i in 1:numEstPt) {
-#  survModelList <- lapply(1:numEstPt, function(i) {
-
-    Sam <- localSample
-    Sam$weight <- weights[[i]]
-    Sam <- Sam[Sam$weight > 0, ]
-
-    # now we are ready to run Survival Regression
-    weight<-Sam$weight
-    numPosWt<-length(Sam$weight)
-    aveWeight<-sum(weight)/numPosWt
-    weight<-weight/aveWeight
-    Sam <- data.frame(Sam)
-    
-#     survModel<-survreg(Surv(log(ConcLow),log(ConcHigh),type="interval2") ~ 
-#                         DecYear+LogQ+SinDY+CosDY,data=Sam,weights=weight,dist="gaus")
-
-#    x <- tryCatch({
-#      survModel<-survreg(Surv(log(ConcLow),log(ConcHigh),type="interval2") ~ 
-#                           DecYear+LogQ+SinDY+CosDY,data=Sam,weights=weight,dist="gaus")
-      
-
-#    }, warning=function(w) {
-#      return(NA)
-#    }, error=function(e) {
-#      message(e, "Error")
-#      return(NULL)
-#    })
-
-   X_and_survModel <- GetX_and_survModel(ConcLow, ConcHigh, DecYear, LogQ, SinDY, CosDY, Sam,weight)
-
-#  })
-
+  resultSurvReg <- ApplyWeights(numEstPt, localSample, weights, GetX_and_survModel, predict, estPtYear, estPtLQ)
 
 #  for (i in 1:numEstPt) {
+#  survModelList <- lapply(1:numEstPt, function(i) {
+
+#    Sam <- localSample
+#    Sam$weight <- weights[[i]]
+#    Sam <- Sam[Sam$weight > 0, ]
+
+    # now we are ready to run Survival Regression
+#    weight<-Sam$weight
+#    numPosWt<-length(Sam$weight)
+#    aveWeight<-sum(weight)/numPosWt
+#    weight<-weight/aveWeight
+#    Sam <- data.frame(Sam)
+    
+##     survModel<-survreg(Surv(log(ConcLow),log(ConcHigh),type="interval2") ~ 
+##                         DecYear+LogQ+SinDY+CosDY,data=Sam,weights=weight,dist="gaus")
+
+##    x <- tryCatch({
+##      survModel<-survreg(Surv(log(ConcLow),log(ConcHigh),type="interval2") ~ 
+##                           DecYear+LogQ+SinDY+CosDY,data=Sam,weights=weight,dist="gaus")
+      
+
+##    }, warning=function(w) {
+##      return(NA)
+##    }, error=function(e) {
+##      message(e, "Error")
+##      return(NULL)
+##    })
+
+##   X_and_survModel <- GetX_and_survModel(ConcLow, ConcHigh, DecYear, LogQ, SinDY, CosDY, Sam,weight)
+#   X_and_survModel <- GetX_and_survModel(Sam,weight)
+
+##  })
+
+
+##  for (i in 1:numEstPt) {
      
-    if (!exists("X_and_survModel")) {
-      resultSurvReg[i,1]<-NA
-      resultSurvReg[i,2]<-NA
-      resultSurvReg[i,3]<-NA
-      warningFlag <- warningFlag + 1
-      next
-    } 
-    if(!any(is.na(X_and_survModel)) & !any(is.null(X_and_survModel))) {
-      x <- X_and_survModel$x
-      survModel <- X_and_survModel$survModel
+#    if (!exists("X_and_survModel")) {
+#      resultSurvReg[i,1]<-NA
+#      resultSurvReg[i,2]<-NA
+#      resultSurvReg[i,3]<-NA
+#      warningFlag <- warningFlag + 1
+#      next
+#    } 
+#    if(!any(is.na(X_and_survModel)) & !any(is.null(X_and_survModel))) {
+#      x <- X_and_survModel$x
+#      survModel <- X_and_survModel$survModel
 
 
-      estY<-estPtYear[i]
-      estLQ<-estPtLQ[i]
+#      estY<-estPtYear[i]
+#      estLQ<-estPtLQ[i]
 #    survModel <- survModelList[[i]] 
-      if(!any(is.na(survModel)) & !any(is.null(survModel))) {
-        newdf<-data.frame(DecYear=estY,LogQ=estLQ,SinDY=sin(2*pi*estY),CosDY=cos(2*pi*estY))
-        #   extract results at estimation point
-        yHat<-predict(survModel,newdf)
-        SE<-survModel$scale
-        bias<-exp((SE^2)/2)
-        resultSurvReg[i,1]<-yHat
-        resultSurvReg[i,2]<-SE
-        resultSurvReg[i,3]<-bias*exp(yHat)
-      } else {
-        resultSurvReg[i,1]<-NA
-        resultSurvReg[i,2]<-NA
-        resultSurvReg[i,3]<-NA
-      }
-    }
+#      if(!any(is.na(survModel)) & !any(is.null(survModel))) {
+#        newdf<-data.frame(DecYear=estY,LogQ=estLQ,SinDY=sin(2*pi*estY),CosDY=cos(2*pi*estY))
+#        #   extract results at estimation point
+#        yHat<-predict(survModel,newdf)
+#        SE<-survModel$scale
+#        bias<-exp((SE^2)/2)
+#        resultSurvReg[i,1]<-yHat
+#        resultSurvReg[i,2]<-SE
+#        resultSurvReg[i,3]<-bias*exp(yHat)
+#      } else {
+#        resultSurvReg[i,1]<-NA
+#        resultSurvReg[i,2]<-NA
+#        resultSurvReg[i,3]<-NA
+#      }
+#    }
     
-    if (i %in% printUpdate & interactive) {
-      cat(floor(i*100/numEstPt),"\t")
-      if (floor(i*100/numEstPt) %in% endOfLine) cat("\n")
-    }
+#    if (i %in% printUpdate & interactive) {
+#      cat(floor(i*100/numEstPt),"\t")
+#      if (floor(i*100/numEstPt) %in% endOfLine) cat("\n")
+#    }
 
-    if(all(is.na(x))){
-      warningFlag <- warningFlag + 1
-    }
+#    if(all(is.na(x))){
+#      warningFlag <- warningFlag + 1
+#    }
 
-  }
-  if (warningFlag > 0 && interactive){
+#  }
+#  if (warningFlag > 0 && interactive){
     
-    message("\nIn model estimation, the survival regression function was run ", numEstPt, " times (for different combinations of discharge and time).  In ", warningFlag, " of these runs it did not properly converge. This does not mean that the model is unacceptable, but it is a suggestion that there may be something odd about the data set. You may want to check for outliers, repeated values on a single date, or something else unusual about the data.")
-  }
+#    message("\nIn model estimation, the survival regression function was run ", numEstPt, " times (for different combinations of discharge and time).  In ", warningFlag, " of these runs it did not properly converge. This does not mean that the model is unacceptable, but it is a suggestion that there may be something odd about the data set. You may want to check for outliers, repeated values on a single date, or something else unusual about the data.")
+#  }
 #   options(warn=0) 
-  if (interactive) cat("\nSurvival regression: Done")
+#  if (interactive) cat("\nSurvival regression: Done")
 
 #  save(resultSurvReg, file = "D:\\EGRET\\resultSurvReg_Test.txt", ascii = TRUE)
   return(resultSurvReg)
 }
+
 
